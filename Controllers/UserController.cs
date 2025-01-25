@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using MyBookApp.Data;
-using MyBookApp.Models;
 using MyBookApp.DTO;
+using MyBookApp.Services;
+using Microsoft.AspNetCore.Identity;
 
 namespace MyBookApp.Controllers
 {
@@ -11,30 +9,26 @@ namespace MyBookApp.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly UserManager<UserModel> _userManager;
-        private readonly AppDbContext _context;
+        private readonly UserService _userService;
 
-        public UserController(UserManager<UserModel> userManager, AppDbContext context)
+        public UserController(UserService userService)
         {
-            _userManager = userManager;
-            _context = context;
+            _userService = userService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
         {
-            var users = await _context.Users.ToListAsync();
-            var userDTOs = users.Select(user => new UserDTOOut
-            {
-                Id = user.Id,
-                Firstname = user.Firstname,
-                Lastname = user.Lastname,
-                City = user.City,
-                MembershipStatus = user.MembershipStatus,
-                Email = user.Email
-            });
+            var users = await _userService.GetAllUsersAsync();
+            return Ok(users);
+        }
 
-            return Ok(userDTOs);
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetUserById(string id)
+        {
+            var user = await _userService.GetUserByIdAsync(id);
+            if (user == null) return NotFound();
+            return Ok(user);
         }
 
         [HttpPost]
@@ -42,51 +36,25 @@ namespace MyBookApp.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var newUser = new UserModel
-            {
-                UserName = userDTOIn.Username,
-                Firstname = userDTOIn.Firstname,
-                Lastname = userDTOIn.Lastname,
-                City = userDTOIn.City,
-                Email = userDTOIn.Email,
-                MembershipStatus = userDTOIn.MembershipStatus
-            };
+            var result = await _userService.CreateUserAsync(userDTOIn);
+            if (!result.Succeeded) return BadRequest(result.Errors);
 
-            var result = await _userManager.CreateAsync(newUser, userDTOIn.Password);
-            if (!result.Succeeded)
-            {
-                return BadRequest(result.Errors);
-            }
-
-            return CreatedAtAction(nameof(GetAllUsers), new { id = newUser.Id }, newUser);
+            return CreatedAtAction(nameof(GetAllUsers), new { userDTOIn.Username });
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(string id, [FromBody] UserDTOIn userDTOIn)
         {
-            var existingUser = await _userManager.FindByIdAsync(id);
-            if (existingUser == null) return NotFound($"User with ID {id} not found.");
-
-            existingUser.Firstname = userDTOIn.Firstname;
-            existingUser.Lastname = userDTOIn.Lastname;
-            existingUser.City = userDTOIn.City;
-            existingUser.MembershipStatus = userDTOIn.MembershipStatus;
-
-            var result = await _userManager.UpdateAsync(existingUser);
+            var result = await _userService.UpdateUserAsync(id, userDTOIn);
             if (!result.Succeeded) return BadRequest(result.Errors);
-
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user == null) return NotFound($"User with ID {id} not found.");
-
-            var result = await _userManager.DeleteAsync(user);
+            var result = await _userService.DeleteUserAsync(id);
             if (!result.Succeeded) return BadRequest(result.Errors);
-
             return NoContent();
         }
     }

@@ -4,8 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using MyBookApp.Data;
 using MyBookApp.Models;
+using MyBookApp.Services;
 
-DotEnv.Load(); // env load
+DotEnv.Load(); 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,9 @@ builder.Services.AddIdentity<UserModel, IdentityRole>()
     .AddDefaultTokenProviders();
 
 builder.Services.AddControllers();
+
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<BookService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
